@@ -1,0 +1,30 @@
+🌱 Seed KAIROS RH...
+   🧹 Limpando tabelas...
+   ✅ Agência "Agência Demo" (slug: demo)
+   ✅ Agência "Agência Teste" (slug: teste)
+   ✅ 3 usuários criados (2 demo + 1 teste)
+   ✅ 3 empresas criadas (Agência Demo)
+   ✅ 10 vagas criadas (Agência Demo)
+   ✅ 1 empresa + 2 vagas criadas (Agência Teste — pra isolamento)
+   ✅ 30 candidatos criados (Agência Demo)
+   ✅ 25 candidaturas criadas (Agência Demo)
+   📄 Gerando curriculos sinteticos e anexando...
+      + candidato criado: Patricia Souza Industrial
+      ✓ curriculo anexado: Patricia Souza Industrial
+      + candidato criado: Roberto Mendes Designer
+      ✓ curriculo anexado: Roberto Mendes Designer
+      + candidato criado: Mariana Costa Atendente
+      ✓ curriculo anexado: Mariana Costa Atendente
+
+📋 Credenciais:
+   ADMIN Demo: admin@demo.com / admin123
+   RECRUITER Demo: recrutador@demo.com / recruiter123
+   ADMIN Teste: admin@teste.com / admin123 (para teste de isolamento)
+   SUPER ADMIN: super@kairosrh.com / super123
+   ✅ Super Admin criado
+
+🔗 URLs públicas (Agência Demo):
+   http://localhost:8031/api/public/agencies/demo/jobs
+   http://localhost:8031/api/public/agencies/demo/jobs/auxiliar-de-producao-abc-industrial-sorocaba
+
+🎉 Seed concluído.

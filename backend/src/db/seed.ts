@@ -1,9 +1,12 @@
 import 'dotenv/config';
+import { and } from 'drizzle-orm';
 import { pool, db } from './client.js';
 import { agencies, users, companies, jobs, candidates, applications, superAdmins } from './schema.js';
 import bcrypt from 'bcryptjs';
 import { sql, eq } from 'drizzle-orm';
 import { slugify } from '../lib/slug.js';
+import { storage } from '../lib/storage.js';
+import { sampleCandidates, generateSampleResume } from './generateSampleResumes.js';
 
 async function seed() {
   console.log('🌱 Seed KAIROS RH...');
@@ -11,7 +14,7 @@ async function seed() {
   // Limpa apenas em dev
   if (process.env.NODE_ENV !== 'production') {
     console.log('   🧹 Limpando tabelas...');
-    await db.execute(sql`TRUNCATE TABLE audit_logs, users, agencies RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE applications, candidates, jobs, companies, audit_logs, users, agencies RESTART IDENTITY CASCADE`);
   }
 
   // ====== AGENCY DEMO ======
@@ -246,6 +249,48 @@ async function seed() {
   }
   console.log(`   ✅ ${appInserts.length} candidaturas criadas (Agência Demo)`);
 
+  // ====== CURRÍCULOS SINTÉTICOS (anexar em 3 candidatos) ======
+  console.log('   📄 Gerando curriculos sinteticos e anexando...');
+  for (const sample of sampleCandidates) {
+    // Encontra ou cria candidato
+    let candRows = await db
+      .select()
+      .from(candidates)
+      .where(and(eq(candidates.agencyId, demoAgency.id), eq(candidates.email, sample.email)))
+      .limit(1);
+    let cand = candRows[0];
+    if (!cand) {
+      const [created] = await db
+        .insert(candidates)
+        .values({
+          agencyId: demoAgency.id,
+          fullName: sample.fullName,
+          email: sample.email,
+          phone: sample.phone.replace(/\D/g, ''),
+          city: sample.city,
+          state: sample.state,
+          experience: sample.experience,
+          education: sample.education,
+          desiredRole: 'Vaga disponivel',
+          availability: 'Imediata',
+        })
+        .returning();
+      cand = created;
+      console.log(`      + candidato criado: ${cand.fullName}`);
+    }
+
+    // Gera PDF e salva
+    const { buffer } = await generateSampleResume(sample);
+    const resumeKey = `agencies/${demoAgency.id}/candidates/${cand.id}.pdf`;
+    const resumeFilename = `curriculo-${cand.fullName.toLowerCase().replace(/\s+/g, '-')}.pdf`;
+    await storage.save(resumeKey, buffer);
+    await db
+      .update(candidates)
+      .set({ resumeKey, resumeFilename, resumeUploadedAt: new Date(), updatedAt: new Date() })
+      .where(eq(candidates.id, cand.id));
+    console.log(`      ✓ curriculo anexado: ${cand.fullName}`);
+  }
+
   console.log('\n📋 Credenciais:');
   console.log('   ADMIN Demo: admin@demo.com / admin123');
   console.log('   RECRUITER Demo: recrutador@demo.com / recruiter123');
@@ -254,12 +299,15 @@ async function seed() {
 
   // ====== SUPER ADMIN ======
   const superHash = await bcrypt.hash('super123', 10);
-  await db.insert(superAdmins).values({
-    name: 'Pastor Fernando',
-    email: 'super@kairosrh.com',
-    passwordHash: superHash,
-    isActive: true,
-  });
+  await db
+    .insert(superAdmins)
+    .values({
+      name: 'Pastor Fernando',
+      email: 'super@kairosrh.com',
+      passwordHash: superHash,
+      isActive: true,
+    })
+    .onConflictDoNothing({ target: superAdmins.email });
   console.log('   ✅ Super Admin criado');
 
   console.log('\n🔗 URLs públicas (Agência Demo):');
