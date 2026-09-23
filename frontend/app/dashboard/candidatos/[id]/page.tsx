@@ -72,6 +72,7 @@ export default function CandidatoDetalhe() {
 
   const [extracting, setExtracting] = useState(false);
   const [extractResult, setExtractResult] = useState<any>(null);
+  const [openingResume, setOpeningResume] = useState(false);
   const [matchByJob, setMatchByJob] = useState<Record<string, { loading: boolean; result: MatchResult | null; error: string | null }>>({});
 
   function load() {
@@ -104,6 +105,31 @@ export default function CandidatoDetalhe() {
       alert('Erro: ' + e.message);
     } finally {
       setExtracting(false);
+    }
+  }
+
+  async function openResume(candidateId: string, filename: string) {
+    setOpeningResume(true);
+    try {
+      // Fetch com Bearer do localStorage (link <a> direto não envia credencial)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const res = await fetch(`/api/candidates/${candidateId}/resume`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      // Libera blob URL depois que a aba abrir
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      alert('Erro ao abrir PDF: ' + e.message);
+    } finally {
+      setOpeningResume(false);
     }
   }
 
@@ -150,14 +176,13 @@ export default function CandidatoDetalhe() {
                 )}
               </div>
               <div className="flex gap-2">
-                <a
-                  href={`/api/candidates/${c.id}/resume`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-brand-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-brand-600"
+                <button
+                  onClick={() => openResume(c.id, c.resumeFilename!)}
+                  disabled={openingResume}
+                  className="bg-brand-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-brand-600 disabled:opacity-50"
                 >
-                  Abrir
-                </a>
+                  {openingResume ? '⏳ Abrindo...' : 'Abrir'}
+                </button>
                 <button
                   onClick={extractResume}
                   disabled={extracting}
