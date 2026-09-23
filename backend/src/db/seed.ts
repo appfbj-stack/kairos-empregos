@@ -11,10 +11,21 @@ import { sampleCandidates, generateSampleResume } from './generateSampleResumes.
 async function seed() {
   console.log('🌱 Seed KAIROS RH...');
 
-  // Limpa apenas em dev
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('   🧹 Limpando tabelas...');
+  // Limpa tabelas (idempotente). Seed é destrutivo por natureza.
+  console.log('   🧹 Limpando tabelas...');
+  try {
+    // TRUNCATE ... CASCADE deve funcionar
     await db.execute(sql`TRUNCATE TABLE applications, candidates, jobs, companies, audit_logs, users, agencies RESTART IDENTITY CASCADE`);
+  } catch (err: any) {
+    // Fallback: DELETE em ordem reversa de FK (evita duplicate key em re-runs)
+    console.warn('   ⚠️  TRUNCATE falhou, usando DELETE:', err.message?.slice(0, 100));
+    await db.execute(sql`DELETE FROM applications`);
+    await db.execute(sql`DELETE FROM candidates`);
+    await db.execute(sql`DELETE FROM jobs`);
+    await db.execute(sql`DELETE FROM companies`);
+    await db.execute(sql`DELETE FROM audit_logs`);
+    await db.execute(sql`DELETE FROM users`);
+    await db.execute(sql`DELETE FROM agencies`);
   }
 
   // ====== AGENCY DEMO ======
