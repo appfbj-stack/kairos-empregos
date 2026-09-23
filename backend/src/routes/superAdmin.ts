@@ -288,13 +288,15 @@ adminRouter.post('/agencies/check-expirations', async (_req, res, next) => {
       return res.json({ blocked: 0, agencies: [] });
     }
 
-    // Marca todas como EXPIRADA em batch
+    // Marca todas como EXPIRADA (1 update por id pra evitar problema com array binding)
     const ids = (expired.rows as any[]).map((r) => r.id);
-    await db.execute(sql`
-      UPDATE agencies
-      SET status = 'EXPIRADA', updated_at = NOW()
-      WHERE id = ANY(${ids}::uuid[])
-    `);
+    for (const id of ids) {
+      await db.execute(sql`
+        UPDATE agencies
+        SET status = 'EXPIRADA', updated_at = NOW()
+        WHERE id = ${id}::uuid
+      `);
+    }
 
     res.json({
       blocked: ids.length,
