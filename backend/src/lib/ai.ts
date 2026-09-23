@@ -218,10 +218,11 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     // @ts-ignore — pdfjs-dist não tem types oficiais completos
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
     // Resolve worker via URL (ESM não tem require.resolve)
+    // ai.ts compila para /app/dist/lib/ai.js → 2 '..' leva a /app (onde está node_modules)
     const { fileURLToPath } = await import('node:url');
     const { dirname, join } = await import('node:path');
     const { pathToFileURL } = await import('node:url');
-    const workerPath = join(dirname(fileURLToPath(import.meta.url)), '../../../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+    const workerPath = join(dirname(fileURLToPath(import.meta.url)), '../../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
     pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
 
     const data = await pdfjs.getDocument({
