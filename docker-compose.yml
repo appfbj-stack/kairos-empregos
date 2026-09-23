@@ -1,0 +1,76 @@
+name: kairos-rh
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kairos-rh-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kairos_rh
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres123}
+      POSTGRES_DB: kairos_rh
+    volumes:
+      - kairos_rh_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kairos_rh -d kairos_rh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kairos-rh-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kairos-rh-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8031
+      DATABASE_URL: postgresql://kairos_rh:${DB_PASS:-postgres123}@postgres:5432/kairos_rh
+      JWT_SECRET: ${JWT_SECRET:-troque-em-prod-use-openssl-rand-hex-32}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-troque-em-prod-use-openssl-rand-hex-32}
+      LOG_LEVEL: info
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_PATH: /app/storage
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8032,http://localhost:3000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-cp-vrrgT5Bv-VpOfVV7G8ZVaG0FvBovzUOZVwEcxBBFr6cFqwNKJ48LvadhmPQj_mV39xZv9jQIlhLYbhZiMay9QMSJYdpLX5BACb0VYeYcuYfrRqbtJtcTpeY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.MiniMax.io/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-MiniMax-M3}
+    ports:
+      - "127.0.0.1:8031:8031"
+    volumes:
+      - kairos_rh_storage:/app/storage
+    networks:
+      - kairos-rh-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8031}
+    container_name: kairos-rh-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8031}
+      PORT: 8032
+      HOSTNAME: '0.0.0.0'
+    ports:
+      - "127.0.0.1:8032:8032"
+    networks:
+      - kairos-rh-net
+
+networks:
+  kairos-rh-net:
+    driver: bridge
+
+volumes:
+  kairos_rh_pg_data:
+  kairos_rh_storage:
