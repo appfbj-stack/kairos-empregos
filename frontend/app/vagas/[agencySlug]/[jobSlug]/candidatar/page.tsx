@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { publicApi } from '@/lib/api';
+import { FileDropzone } from '@/components/FileDropzone';
 
 interface JobData {
   job: { title: string; city: string | null; state: string | null; company: { tradeName: string | null; legalName: string } };
@@ -211,18 +212,12 @@ export default function CandidatarPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Currículo (PDF, máx 5MB)</label>
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={(e) => setResume(e.target.files?.[0] || null)}
-              className="w-full text-sm"
+            <FileDropzone
+              value={resume}
+              onChange={setResume}
+              label="Currículo (PDF, máx 5MB)"
+              hint="Arraste o arquivo aqui ou clique pra selecionar"
             />
-            {resume && (
-              <div className="text-xs text-slate-600 mt-1">
-                {resume.name} · {(resume.size / 1024).toFixed(0)} KB
-              </div>
-            )}
           </div>
 
           <div className="bg-slate-50 p-3 rounded-lg">

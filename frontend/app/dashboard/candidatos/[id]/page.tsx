@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { FileDropzone } from '@/components/FileDropzone';
 
 interface CandidateDetail {
   candidate: {
@@ -73,6 +74,8 @@ export default function CandidatoDetalhe() {
   const [extracting, setExtracting] = useState(false);
   const [extractResult, setExtractResult] = useState<any>(null);
   const [openingResume, setOpeningResume] = useState(false);
+  const [replaceFile, setReplaceFile] = useState<File | null>(null);
+  const [replacing, setReplacing] = useState(false);
   const [matchByJob, setMatchByJob] = useState<Record<string, { loading: boolean; result: MatchResult | null; error: string | null }>>({});
 
   function load() {
@@ -133,6 +136,34 @@ export default function CandidatoDetalhe() {
     }
   }
 
+  function fileToBase64(f: File): Promise<string> {
+    return new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res(String(reader.result).split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(f);
+    });
+  }
+
+  async function uploadReplacement() {
+    if (!replaceFile) return;
+    setReplacing(true);
+    try {
+      const base64 = await fileToBase64(replaceFile);
+      await api(`/api/candidates/${params.id}/resume`, {
+        method: 'PUT',
+        body: JSON.stringify({ resumeBase64: base64, resumeFilename: replaceFile.name }),
+      });
+      setReplaceFile(null);
+      load();
+      alert('Currículo substituído com sucesso.');
+    } catch (e: any) {
+      alert('Erro ao substituir: ' + e.message);
+    } finally {
+      setReplacing(false);
+    }
+  }
+
   async function analyzeMatch(jobId: string) {
     setMatchByJob((p) => ({ ...p, [jobId]: { loading: true, result: null, error: null } }));
     try {
@@ -165,7 +196,7 @@ export default function CandidatoDetalhe() {
         {c.cnh && <div className="text-sm"><strong>CNH:</strong> {c.cnh}</div>}
 
         {c.resumeFilename && (
-          <div className="mt-4 p-3 bg-slate-50 rounded-lg">
+          <div className="mt-4 p-3 bg-slate-50 rounded-lg space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium">📄 {c.resumeFilename}</div>
@@ -192,6 +223,34 @@ export default function CandidatoDetalhe() {
                 </button>
               </div>
             </div>
+
+            {replaceFile ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={uploadReplacement}
+                  disabled={replacing}
+                  className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {replacing ? '⏳ Enviando...' : '✓ Confirmar substituição'}
+                </button>
+                <button
+                  onClick={() => setReplaceFile(null)}
+                  disabled={replacing}
+                  className="text-slate-500 hover:text-slate-700 text-sm px-2 py-1.5"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <FileDropzone
+                value={null}
+                onChange={(f) => setReplaceFile(f)}
+                label="Substituir currículo"
+                hint="Arraste um PDF novo ou clique pra selecionar"
+                replaceMode
+                currentFilename={c.resumeFilename}
+              />
+            )}
             {extractResult && (
               <div className="mt-3 p-2 bg-emerald-50 border border-emerald-200 rounded text-xs">
                 ✅ Extraído: {extractResult.textLength} chars de texto.
