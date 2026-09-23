@@ -271,5 +271,39 @@ adminRouter.patch('/users/:userId/toggle-active', async (req, res, next) => {
   }
 });
 
+// ===== Bloquear agências com licença vencida (licenseEnd < hoje) =====
+// Acionado manualmente pelo super-admin via botão. Idempotente.
+adminRouter.post('/agencies/check-expirations', async (_req, res, next) => {
+  try {
+    // Lista candidatas (status ATIVA/TESTE com licenseEnd < agora)
+    const expired = await db.execute(sql`
+      SELECT id, slug, name, status, license_end
+      FROM agencies
+      WHERE status IN ('ATIVA', 'TESTE')
+        AND license_end IS NOT NULL
+        AND license_end < NOW()
+    `);
+
+    if (expired.rows.length === 0) {
+      return res.json({ blocked: 0, agencies: [] });
+    }
+
+    // Marca todas como EXPIRADA em batch
+    const ids = (expired.rows as any[]).map((r) => r.id);
+    await db.execute(sql`
+      UPDATE agencies
+      SET status = 'EXPIRADA', updated_at = NOW()
+      WHERE id = ANY(${ids}::uuid[])
+    `);
+
+    res.json({
+      blocked: ids.length,
+      agencies: expired.rows,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default authRouter;
 export { adminRouter };

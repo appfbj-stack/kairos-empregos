@@ -33,6 +33,8 @@ export default function SuperAdminPage() {
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<{ blocked: number; names: string[] } | null>(null);
 
   function load() {
     setLoading(true);
@@ -42,6 +44,24 @@ export default function SuperAdminPage() {
       .finally(() => setLoading(false));
   }
   useEffect(() => { load(); }, []);
+
+  async function checkExpirations() {
+    if (!confirm('Bloquear todas as agências com licença vencida (licenseEnd < hoje)? Essa ação muda o status para EXPIRADA.')) return;
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const r = await superApi<{ blocked: number; agencies: Array<{ name: string }> }>(
+        '/api/super-admin/agencies/check-expirations',
+        { method: 'POST' }
+      );
+      setCheckResult({ blocked: r.blocked, names: r.agencies.map((a) => a.name) });
+      load();
+    } catch (e: any) {
+      alert('Erro: ' + e.message);
+    } finally {
+      setChecking(false);
+    }
+  }
 
   // Totais globais
   const totals = agencies.reduce(
@@ -56,15 +76,37 @@ export default function SuperAdminPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold">Agências</h1>
           <p className="text-sm text-slate-500">Gestão de tenants da plataforma</p>
         </div>
-        <Link href="/super-admin/nova" className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-4 py-2 rounded-lg font-medium">
-          + Nova agência
-        </Link>
+        <div className="flex gap-2">
+          <button
+            onClick={checkExpirations}
+            disabled={checking}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
+            title="Bloquear agências com licença vencida"
+          >
+            {checking ? '⏳ Verificando...' : '🔄 Verificar expirações'}
+          </button>
+          <Link href="/super-admin/nova" className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-4 py-2 rounded-lg font-medium">
+            + Nova agência
+          </Link>
+        </div>
       </div>
+
+      {checkResult && (
+        <div className={`mb-4 p-3 rounded-lg text-sm ${checkResult.blocked > 0 ? 'bg-amber-50 border border-amber-300 text-amber-800' : 'bg-emerald-50 border border-emerald-300 text-emerald-800'}`}>
+          {checkResult.blocked === 0 ? (
+            <>✅ Nenhuma agência vencida. Tudo certo.</>
+          ) : (
+            <>
+              🚫 <strong>{checkResult.blocked}</strong> agência(s) bloqueada(s) por licença vencida: {checkResult.names.join(', ')}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <Card label="Agências" value={agencies.length} />
