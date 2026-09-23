@@ -81,10 +81,6 @@ export default function DashboardPage() {
           </a>
         </div>
       </div>
-
-      <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
-        <strong>📍 Próximas fases:</strong> Candidatos + CRM Kanban (Fases 3–5), Super Admin (Fase 6), IA de currículo (Fase 7), Matching (Fase 8).
-      </div>
     </div>
   );
 }
