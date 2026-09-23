@@ -76,6 +76,8 @@ export default function CandidatoDetalhe() {
   const [openingResume, setOpeningResume] = useState(false);
   const [replaceFile, setReplaceFile] = useState<File | null>(null);
   const [replacing, setReplacing] = useState(false);
+  const [exportingLGPD, setExportingLGPD] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [matchByJob, setMatchByJob] = useState<Record<string, { loading: boolean; result: MatchResult | null; error: string | null }>>({});
 
   function load() {
@@ -161,6 +163,49 @@ export default function CandidatoDetalhe() {
       alert('Erro ao substituir: ' + e.message);
     } finally {
       setReplacing(false);
+    }
+  }
+
+  async function exportLGPD() {
+    setExportingLGPD(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const res = await fetch(`/api/candidates/${params.id}/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const match = cd.match(/filename="([^"]+)"/);
+      const filename = match?.[1] || `lgpd-export-${params.id}.json`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e: any) {
+      alert('Erro ao exportar: ' + e.message);
+    } finally {
+      setExportingLGPD(false);
+    }
+  }
+
+  async function deleteCandidate() {
+    if (!confirm('Excluir este candidato e TODAS as candidaturas dele? Esta ação não pode ser desfeita (LGPD Art. 18, VI).')) return;
+    const typed = prompt('Digite EXCLUIR para confirmar:');
+    if (typed !== 'EXCLUIR') {
+      alert('Exclusão cancelada.');
+      return;
+    }
+    setDeleting(true);
+    try {
+      await api(`/api/candidates/${params.id}`, { method: 'DELETE' });
+      router.push('/dashboard/candidatos');
+    } catch (e: any) {
+      alert('Erro ao excluir: ' + e.message);
+      setDeleting(false);
     }
   }
 
@@ -264,6 +309,29 @@ export default function CandidatoDetalhe() {
             )}
           </div>
         )}
+
+        {/* LGPD */}
+        <div className="mt-4 pt-4 border-t border-slate-200">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">LGPD</h3>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={exportLGPD}
+              disabled={exportingLGPD}
+              className="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-slate-800 disabled:opacity-50"
+              title="Baixar JSON com todos os dados (Art. 18, V)"
+            >
+              {exportingLGPD ? '⏳ Exportando...' : '📋 Exportar dados'}
+            </button>
+            <button
+              onClick={deleteCandidate}
+              disabled={deleting}
+              className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
+              title="Excluir candidato e todos os dados vinculados (Art. 18, VI)"
+            >
+              {deleting ? '⏳ Excluindo...' : '🗑️ Excluir candidato'}
+            </button>
+          </div>
+        </div>
 
         {c.experience && (
           <div className="mt-4">

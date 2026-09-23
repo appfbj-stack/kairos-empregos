@@ -289,4 +289,111 @@ router.get('/by-job/:jobId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ===== LGPD: exportar todos os dados do candidato (Art. 18, V) =====
+router.get('/:id/export', async (req, res, next) => {
+  try {
+    const tid = tenantId(req);
+    const id = req.params.id as string;
+
+    const candRows = await db
+      .select()
+      .from(candidates)
+      .where(and(eq(candidates.id, id), eq(candidates.agencyId, tid)))
+      .limit(1);
+    const cand = candRows[0];
+    if (!cand) throw new HttpError(404, 'NOT_FOUND', 'Candidato não encontrado');
+
+    const apps = await db
+      .select({
+        applicationId: applications.id,
+        stage: applications.stage,
+        notes: applications.notes,
+        createdAt: applications.createdAt,
+        job: { id: jobs.id, slug: jobs.slug, title: jobs.title },
+        company: { id: companies.id, tradeName: companies.tradeName, legalName: companies.legalName },
+      })
+      .from(applications)
+      .innerJoin(jobs, eq(applications.jobId, jobs.id))
+      .innerJoin(companies, eq(jobs.companyId, companies.id))
+      .where(eq(applications.candidateId, id));
+
+    // audit log (LGPD Art. 37 — registro de operações de tratamento)
+    await db.execute(sql`
+      INSERT INTO audit_logs (agency_id, user_id, action, ip, user_agent, metadata, created_at)
+      VALUES (${tid}, ${req.auth!.user.id}, 'lgpd.export', ${req.ip ?? null}, ${req.headers['user-agent']?.slice(0, 500) ?? null},
+              ${JSON.stringify({ candidateId: id })}::jsonb, NOW())
+    `);
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="lgpd-export-${cand.fullName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.json({
+      exportedAt: new Date().toISOString(),
+      lgpd: 'Art. 18, V — Direito de acesso aos dados',
+      agency: { id: tid, name: req.auth!.agency.name },
+      candidate: {
+        id: cand.id,
+        fullName: cand.fullName,
+        email: cand.email,
+        phone: cand.phone,
+        cpf: cand.cpf,
+        city: cand.city,
+        state: cand.state,
+        birthDate: cand.birthDate,
+        education: cand.education,
+        experience: cand.experience,
+        desiredRole: cand.desiredRole,
+        salaryExpectation: cand.salaryExpectation,
+        availability: cand.availability,
+        cnh: cand.cnh,
+        notes: cand.notes,
+        tags: cand.tags,
+        createdAt: cand.createdAt,
+        updatedAt: cand.updatedAt,
+        aiExtractedAt: cand.aiExtractedAt,
+      },
+      applications: apps,
+    });
+  } catch (err) { next(err); }
+});
+
+// ===== LGPD: deletar candidato e todos os dados vinculados (Art. 18, VI) =====
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const tid = tenantId(req);
+    const id = req.params.id as string;
+
+    // Audit ANTES (registra quem pediu a exclusão e os metadados)
+    await db.execute(sql`
+      INSERT INTO audit_logs (agency_id, user_id, action, ip, user_agent, metadata, created_at)
+      VALUES (${tid}, ${req.auth!.user.id}, 'lgpd.delete', ${req.ip ?? null}, ${req.headers['user-agent']?.slice(0, 500) ?? null},
+              ${JSON.stringify({ candidateId: id })}::jsonb, NOW())
+    `);
+
+    // Apaga o currículo do storage (best-effort)
+    const candRows = await db
+      .select({ resumeKey: candidates.resumeKey })
+      .from(candidates)
+      .where(and(eq(candidates.id, id), eq(candidates.agencyId, tid)))
+      .limit(1);
+    if (!candRows[0]) throw new HttpError(404, 'NOT_FOUND', 'Candidato não encontrado');
+
+    if (candRows[0].resumeKey) {
+      try {
+        await storage.delete(candRows[0].resumeKey);
+      } catch {
+        /* best-effort — não bloqueia a exclusão */
+      }
+    }
+
+    // Cascade via FK apaga applications automaticamente
+    const deleted = await db
+      .delete(candidates)
+      .where(and(eq(candidates.id, id), eq(candidates.agencyId, tid)))
+      .returning({ id: candidates.id });
+
+    if (!deleted[0]) throw new HttpError(404, 'NOT_FOUND', 'Candidato não encontrado');
+    res.json({ ok: true, deletedId: deleted[0].id });
+  } catch (err) { next(err); }
+});
+
 export default router;
