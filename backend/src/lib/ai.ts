@@ -213,14 +213,33 @@ function stubExtract(text: string): AiResume {
  * Extrai texto de um PDF (buffer).
  */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
-  // Lazy import para não quebrar caso pdf-parse falhe em instalar
-  // (em alguns SOs precisa de canvas/gcc)
+  // pdfjs-dist (Mozilla PDF.js) é mais robusto que pdf-parse em PDFs modernos.
   try {
-    // @ts-ignore — pdf-parse não tem types oficiais completos
-    const mod = await import('pdf-parse');
-    const pdfParse = mod.default || mod;
-    const data = await pdfParse(buffer);
-    return (data.text || '').trim();
+    // @ts-ignore — pdfjs-dist não tem types oficiais completos
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    // Resolve worker via URL (ESM não tem require.resolve)
+    const { fileURLToPath } = await import('node:url');
+    const { dirname, join } = await import('node:path');
+    const { pathToFileURL } = await import('node:url');
+    const workerPath = join(dirname(fileURLToPath(import.meta.url)), '../../../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+
+    const data = await pdfjs.getDocument({
+      data: new Uint8Array(buffer),
+      isEvalSupported: false,
+      disableFontFace: true,
+      useSystemFonts: false,
+    }).promise;
+
+    let text = '';
+    for (let i = 1; i <= data.numPages; i++) {
+      const page = await data.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items
+        .map((item: any) => ('str' in item ? item.str : ''))
+        .join(' ') + '\n';
+    }
+    return text.trim();
   } catch (err: any) {
     throw new Error(`Falha ao extrair texto do PDF: ${err.message}. Se for PDF scaneado, use OCR.`);
   }
