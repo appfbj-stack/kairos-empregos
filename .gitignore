@@ -17,42 +17,32 @@ build/
 
 # logs e debug files
 *.log
-*.txt.log
-*.err.txt
-*.out.txt
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# arquivos temporários de teste
-**/dbg_*.txt
-**/dbg_*.err
-**/npm_*.txt
-**/npm_*.err
-**/seed*.txt
-**/seed*.err
-**/drizzle*.txt
-**/drizzle*.err
-**/dk_*.txt
-**/dk_*.err
-**/tsc*.txt
-**/test_*.txt
-**/test_*.err
-**/srv_*.txt
-**/srv_*.err
-**/psql*.txt
-**/psql*.err
+*.err
+*.out
+*.tmp
+*.bak
+**/dbg_*
+**/npm_*
+**/seed_*
+**/drizzle_*
+**/dk_*
+**/tsc_*
+**/test_*
+**/srv_*
+**/psql_*
 **/frontend.log
 **/frontend.err
 **/backend.log
 **/backend.err
-**/dc_*.txt
-**/dc_*.err
-**/ps_*.txt
-**/ps_*.err
-**/server_*.txt
-**/server_*.err
-**/commit_*.txt
+**/dc_*
+**/ps_*
+**/server_*
+**/commit_*
+**/push_*
+**/fix_*
+**/deploy-*.ps1
+**/caddy_block.txt
+**/docker_*.txt
 
 # OS
 .DS_Store
@@ -67,6 +57,6 @@ Thumbs.db
 # debug
 backend/src/debug-storage.ts
 
-# storage (PDFs enviados — não versionar)
+# storage (PDFs enviados)
 backend/storage/*
 !backend/storage/.gitkeep

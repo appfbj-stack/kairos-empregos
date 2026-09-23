@@ -111,7 +111,7 @@ export default function AgenciaDetalhePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-6">
           <Stat label="Plano" value={agency.plan} />
           <Stat label="Status" value={agency.status} highlight={expired ? 'text-red-600' : ''} />
           <Stat label="Licença até" value={agency.licenseEnd ? new Date(agency.licenseEnd).toLocaleDateString('pt-BR') : '—'} />
@@ -134,7 +134,7 @@ export default function AgenciaDetalhePage() {
       </div>
 
       <h2 className="text-xl font-bold mb-3">Usuários</h2>
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      <div className="bg-white rounded-xl shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-100 text-left">
             <tr>

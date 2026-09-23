@@ -80,7 +80,7 @@ export default function SuperAdminPage() {
       ) : agencies.length === 0 ? (
         <div className="bg-white rounded-xl p-8 text-center text-slate-500">Nenhuma agência cadastrada.</div>
       ) : (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left">
               <tr>
